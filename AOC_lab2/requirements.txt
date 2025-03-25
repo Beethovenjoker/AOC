@@ -1,0 +1,7 @@
+onnx
+onnxruntime
+tabulate
+torch
+torchvision
+tqdm
+matplotlib
