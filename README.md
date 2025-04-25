@@ -1,5 +1,5 @@
 # AOC
-AI-On-Chip For Machine Learning And Inference Labs
+AI-On-Chip For Machine Learning And Inference Labs.
 ```
               ____     _____ 
      /\      / __ \   / ____|        
