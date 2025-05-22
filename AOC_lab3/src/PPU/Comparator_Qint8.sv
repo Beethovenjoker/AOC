@@ -9,19 +9,20 @@ module Comparator_Qint8 (
     output logic[7:0] maxpool_data_out
 );
 
+    // counter
     logic [7:0] max;
     logic [1:0] counter;
 
     // current state
-    logic [2:0] cur_state;
-    logic [2:0] next_state;
+    logic [1:0] cur_state;
+    logic [1:0] next_state;
 
     // state
-    parameter [2:0] IDLE                = 3'b000;
-    parameter [2:0] LOAD_DATA           = 3'b001;
-    parameter [2:0] OUTPUT              = 3'b010;
+    parameter [1:0] IDLE                = 3'b00;
+    parameter [1:0] LOAD_DATA           = 3'b01;
+    parameter [1:0] OUTPUT              = 3'b10;
 
-    // changing state
+    // state register
     always_ff @(posedge clk) begin
         if (rst)
             cur_state <= IDLE;
@@ -40,7 +41,7 @@ module Comparator_Qint8 (
             end
 
             LOAD_DATA: begin
-                if (counter == 2)
+                if (counter == 2'b10)
                     next_state = OUTPUT;
                 else
                     next_state = LOAD_DATA;
@@ -83,11 +84,8 @@ module Comparator_Qint8 (
     end
 
     // output
-    always_ff @(negedge clk) begin
-        if (rst)
-            maxpool_data_out <= 0;
-        else
-            maxpool_data_out <= max;
+    always_comb begin
+        maxpool_data_out = max;
     end
 
 endmodule
