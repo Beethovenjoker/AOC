@@ -16,10 +16,15 @@ module PPU (
     output logic[7:0] data_out
 );
 
+    logic [7:0] pq_data_out;
+    logic [7:0] cq_data_out;
+    logic [7:0] mux_data_out;
+    logic [7:0] relu_data_out;
+
     post_quant pq (
         .post_quant_data_in(data_in),
         .scaling_factor(scaling_factor),
-        .post_quant_data_out()
+        .post_quant_data_out(pq_data_out)
     );
 
     Comparator_Qint8 cq(
@@ -27,23 +32,23 @@ module PPU (
         .rst(rst),
         .maxpool_en(maxpool_en),
         .maxpool_init(maxpool_init),
-        .maxpool_data_in(pq.post_quant_data_out),
-        .maxpool_data_out()
+        .maxpool_data_in(pq_data_out),
+        .maxpool_data_out(cq_data_out)
     );
 
     MUX m(
-        .data_A(cq.maxpool_data_out),
-        .data_B(pq.post_quant_data_out),
+        .data_A(cq_data_out),
+        .data_B(pq_data_out),
         .sel(relu_sel),
-        .mux_data_out()
+        .mux_data_out(mux_data_out)
     );
 
     ReLU_Qint8 rq(
-        .relu_data_in(m.mux_data_out),
+        .relu_data_in(mux_data_out),
         .relu_en(relu_en),
-        .relu_data_out()
+        .relu_data_out(relu_data_out)
     );
 
-    assign data_out = rq.relu_data_out;
+    assign data_out = relu_data_out;
 
 endmodule
