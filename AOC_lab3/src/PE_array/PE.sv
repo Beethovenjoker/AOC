@@ -22,6 +22,10 @@ module PE (
     output logic opsum_valid
 );
 
+    //================================================================
+    //  Parameters
+    //================================================================
+
     // cofig decode
     logic mode;
     logic [2:0] p;
@@ -50,6 +54,10 @@ module PE (
     // sliding
     logic sliding_on;
 
+    //================================================================
+    //  Decoding
+    //================================================================
+
     // config decoding
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -70,13 +78,9 @@ module PE (
         end
     end
 
-    // hand shaking
-    always_comb begin
-        ifmap_ready  = (cur_state == LOAD_IFMAP) || (cur_state == SLIDING_LOAD);
-        filter_ready = (cur_state == LOAD_FILT);
-        ipsum_ready  = (cur_state == LOAD_IPSUM);
-        opsum_valid  = (cur_state == OUTPUT && output_counter < 4);
-    end
+    //================================================================
+    //  FSM
+    //================================================================
 
     // current state
     logic [3:0] cur_state;
@@ -186,6 +190,10 @@ module PE (
         endcase
     end
 
+    //================================================================
+    //  Load Counter
+    //================================================================
+
     // load counter
     always_comb begin
         filter_index = {2'b0, filter_counter};;
@@ -205,21 +213,6 @@ module PE (
             filter_counter <= filter_counter;
     end
 
-    // load filter
-    always_ff @(posedge clk) begin
-        if (rst) begin
-            for (int i = 0 ; i < 48 ; i++)                         
-                filter_spad[i]  <= 8'd0;
-        end else if (filter_valid && filter_ready) begin
-            filter_spad[filter_index] <= filter[7:0];
-            filter_spad[filter_index + 12] <= filter[15:8];
-            filter_spad[filter_index + 24] <= filter[23:16];
-            filter_spad[filter_index + 36] <= filter[31:24];
-        end else begin
-            filter_spad <= filter_spad;
-        end   
-    end
-
     // ifmap counter
     always_ff @(posedge clk) begin
         if (rst)
@@ -230,6 +223,18 @@ module PE (
             ifmap_counter <= 0;
         else
             ifmap_counter <= ifmap_counter;
+    end
+
+    // ipsum counter
+    always_ff @(posedge clk) begin
+        if (rst)
+            ipsum_counter <= 0;
+        else if (ipsum_valid && ipsum_ready)
+            ipsum_counter <= ipsum_counter + 1;
+        else if (cur_state == LOAD_IDLE)
+            ipsum_counter <= 0;
+        else
+            ipsum_counter <= ipsum_counter;
     end
 
     // sliding counter
@@ -255,7 +260,69 @@ module PE (
         else
             sliding_load_counter <= sliding_load_counter;
     end
-    
+
+    //================================================================
+    //  Compute Counter
+    //================================================================
+
+    // compute filter counter
+    always_ff @(posedge clk) begin
+        if (rst)
+           compute_filter_counter <= 0;
+        else if (cur_state == COMPUTE)
+           compute_filter_counter <= compute_filter_counter + 1;
+        else if (cur_state == LOAD_IDLE)
+           compute_filter_counter <= 0;
+        else
+           compute_filter_counter <= compute_filter_counter;
+    end
+    // compute ifmap counter
+    always_ff @(posedge clk) begin
+        if (rst)
+            compute_ifmap_counter <= 0;
+        else if (cur_state == COMPUTE)
+            compute_ifmap_counter <= compute_ifmap_counter + 1;
+        else if (cur_state == SWITCH_FILTER_IPSUM)
+            compute_ifmap_counter <= compute_ifmap_counter - 3;
+        else if (cur_state == LOAD_IDLE)
+            compute_ifmap_counter <= 0;
+        else
+            compute_ifmap_counter <= compute_ifmap_counter;
+    end
+
+    // compute ipsum counter
+    always_ff @(posedge clk) begin
+        if (rst)
+           compute_ipsum_counter <= 0;
+        else if (cur_state == SWITCH_FILTER_IPSUM)
+           compute_ipsum_counter <= compute_ipsum_counter + 1;
+        else if (cur_state == SWITCH_IFMAP)
+           compute_ipsum_counter <= 0;
+        else if (cur_state == LOAD_IDLE)
+            compute_ipsum_counter <= 0;
+        else
+           compute_ipsum_counter <= compute_ipsum_counter;
+    end
+
+    //================================================================
+    //  Calculate
+    //================================================================
+
+    // load filter
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            for (int i = 0 ; i < 48 ; i++)                         
+                filter_spad[i]  <= 8'd0;
+        end else if (filter_valid && filter_ready) begin
+            filter_spad[filter_index] <= filter[7:0];
+            filter_spad[filter_index + 12] <= filter[15:8];
+            filter_spad[filter_index + 24] <= filter[23:16];
+            filter_spad[filter_index + 36] <= filter[31:24];
+        end else begin
+            filter_spad <= filter_spad;
+        end   
+    end
+
     // load ifmap
     always_ff @(posedge clk) begin
         if (rst)begin
@@ -282,59 +349,6 @@ module PE (
         end
     end
 
-    // compute ifmap counter
-    always_ff @(posedge clk) begin
-        if (rst)
-            compute_ifmap_counter <= 0;
-        else if (cur_state == COMPUTE)
-            compute_ifmap_counter <= compute_ifmap_counter + 1;
-        else if (cur_state == SWITCH_FILTER_IPSUM)
-            compute_ifmap_counter <= compute_ifmap_counter - 3;
-        else if (cur_state == LOAD_IDLE)
-            compute_ifmap_counter <= 0;
-        else
-            compute_ifmap_counter <= compute_ifmap_counter;
-    end
-
-    // compute filter counter
-    always_ff @(posedge clk) begin
-        if (rst)
-           compute_filter_counter <= 0;
-        else if (cur_state == COMPUTE)
-           compute_filter_counter <= compute_filter_counter + 1;
-        else if (cur_state == LOAD_IDLE)
-           compute_filter_counter <= 0;
-        else
-           compute_filter_counter <= compute_filter_counter;
-    end
-
-
-    // compute ipsum counter
-    always_ff @(posedge clk) begin
-        if (rst)
-           compute_ipsum_counter <= 0;
-        else if (cur_state == SWITCH_FILTER_IPSUM)
-           compute_ipsum_counter <= compute_ipsum_counter + 1;
-        else if (cur_state == SWITCH_IFMAP)
-           compute_ipsum_counter <= 0;
-        else if (cur_state == LOAD_IDLE)
-            compute_ipsum_counter <= 0;
-        else
-           compute_ipsum_counter <= compute_ipsum_counter;
-    end
-
-    // ipsum counter
-    always_ff @(posedge clk) begin
-        if (rst)
-            ipsum_counter <= 0;
-        else if (ipsum_valid && ipsum_ready)
-            ipsum_counter <= ipsum_counter + 1;
-        else if (cur_state == LOAD_IDLE)
-            ipsum_counter <= 0;
-        else
-            ipsum_counter <= ipsum_counter;
-    end
-
     // ipsum compute
     always_ff @(posedge clk) begin
         if (rst) begin
@@ -352,6 +366,9 @@ module PE (
         end
     end
 
+    //================================================================
+    //  Control Signals
+    //================================================================
 
     // sliding on
     always_ff @(posedge clk) begin
@@ -364,6 +381,18 @@ module PE (
         else
             sliding_on <= sliding_on;
     end
+
+    // hand shaking
+    always_comb begin
+        ifmap_ready  = (cur_state == LOAD_IFMAP) || (cur_state == SLIDING_LOAD);
+        filter_ready = (cur_state == LOAD_FILT);
+        ipsum_ready  = (cur_state == LOAD_IPSUM);
+        opsum_valid  = (cur_state == OUTPUT && output_counter < 4);
+    end
+
+    //================================================================
+    //  Output
+    //================================================================
 
     // output counter
     always_ff @(posedge clk) begin
@@ -379,7 +408,7 @@ module PE (
 
     // output
     always_comb begin
-        opsum = ipsum_spad[output_counter[1:0]];
+        opsum = ipsum_spad[output_counter];
     end
 
 endmodule
