@@ -86,14 +86,6 @@ module PE (
     logic [3:0] cur_state;
     logic [3:0] next_state;
 
-    // changing state
-    always_ff @(posedge clk) begin
-        if (rst)
-            cur_state <= IDLE;
-        else
-            cur_state <= next_state;
-    end
-
     // state
     parameter [3:0] IDLE                = 4'b0000;
     parameter [3:0] LOAD_IDLE           = 4'b0001;
@@ -106,6 +98,14 @@ module PE (
     parameter [3:0] SWITCH_FILTER_IPSUM = 4'b1000;
     parameter [3:0] SWITCH_IFMAP        = 4'b1001;
     parameter [3:0] OUTPUT              = 4'b1010;
+    
+    // changing state
+    always_ff @(posedge clk) begin
+        if (rst)
+            cur_state <= IDLE;
+        else
+            cur_state <= next_state;
+    end
 
     // next state logic
     always_comb begin
